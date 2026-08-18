@@ -5,8 +5,13 @@ import { useState, useEffect } from 'react';
 export default function Home() {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true); // Initial load fetching state
+  const [isFetching, setIsFetching] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalAssets, setTotalAssets] = useState(0);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -14,17 +19,22 @@ export default function Home() {
   const [svgFile, setSvgFile] = useState(null);
   const [jpegFile, setJpegFile] = useState(null);
 
-  // Fetch assets on load
   useEffect(() => {
-    fetchAssets();
-  }, []);
+    fetchAssets(page);
+  }, [page]);
 
-  const fetchAssets = async () => {
+  const fetchAssets = async (currentPage = 1) => {
     setIsFetching(true);
     try {
-      const res = await fetch('/api/assets');
+      const res = await fetch(`/api/assets?page=${currentPage}`);
       const result = await res.json();
-      if (result.success) setAssets(result.data);
+      if (result.success) {
+        setAssets(result.data);
+        if (result.pagination) {
+          setTotalPages(result.pagination.totalPages || 1);
+          setTotalAssets(result.pagination.totalAssets || 0);
+        }
+      }
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
@@ -32,10 +42,8 @@ export default function Home() {
     }
   };
 
-  // Compress JPEG in browser canvas before encoding to Base64
   const compressAndConvertToBase64 = (file, maxWidth = 1200, quality = 0.7) => {
     return new Promise((resolve, reject) => {
-      // If it's an SVG, read directly as Base64 without canvas compression
       if (file.type.includes('svg') || file.name.endsWith('.svg')) {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -44,7 +52,6 @@ export default function Home() {
         return;
       }
 
-      // Canvas compression for JPEGs
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
@@ -66,7 +73,6 @@ export default function Home() {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Convert to lightweight compressed JPEG Base64
           const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
           resolve(compressedBase64);
         };
@@ -76,7 +82,6 @@ export default function Home() {
     });
   };
 
-  // Updated handleUpload function
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!title || !keywords) return alert('Please enter Title and Keywords!');
@@ -86,7 +91,6 @@ export default function Home() {
       let svgData = null;
       let jpegData = null;
 
-      // Compress JPEG preview & convert SVG to base64
       if (svgFile) svgData = await compressAndConvertToBase64(svgFile);
       if (jpegFile) jpegData = await compressAndConvertToBase64(jpegFile);
 
@@ -106,14 +110,14 @@ export default function Home() {
       const result = await res.json();
       if (!result.success) throw new Error(result.error);
 
-      // Reset Form
       setTitle('');
       setKeywords('');
       setSvgFile(null);
       setJpegFile(null);
       e.target.reset();
 
-      fetchAssets();
+      setPage(1);
+      fetchAssets(1);
     } catch (err) {
       alert('Upload failed: ' + err.message);
     } finally {
@@ -121,7 +125,6 @@ export default function Home() {
     }
   };
 
-  // Delete Item from MongoDB Atlas
   const handleDelete = async (id) => {
     if (!confirm('Mark as done and delete from MongoDB?')) return;
 
@@ -129,7 +132,11 @@ export default function Home() {
       const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
       const result = await res.json();
       if (result.success) {
-        setAssets(assets.filter((item) => item._id !== id));
+        if (assets.length === 1 && page > 1) {
+          setPage((prev) => prev - 1);
+        } else {
+          fetchAssets(page);
+        }
       } else {
         alert('Delete failed: ' + result.error);
       }
@@ -138,14 +145,12 @@ export default function Home() {
     }
   };
 
-  // Copy Title / Keywords
   const copyToClipboard = (text, id, field) => {
     navigator.clipboard.writeText(text);
     setCopiedId(`${id}-${field}`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Export Adobe Stock CSV
   const downloadAdobeCSV = () => {
     const headers = 'Filename,Title,Keywords\n';
     const rows = assets
@@ -173,7 +178,7 @@ export default function Home() {
         <div>
           <h1 className="text-3xl font-bold">Adobe Stock Asset Hub (MongoDB Atlas)</h1>
           <p className="text-sm text-slate-500">
-            Pending Assets: {isFetching ? 'Loading...' : assets.length}
+            Total Pending Assets: {isFetching ? 'Loading...' : totalAssets}
           </p>
         </div>
 
@@ -182,7 +187,7 @@ export default function Home() {
             onClick={downloadAdobeCSV}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg shadow transition"
           >
-            📥 Export Adobe Stock CSV
+            📥 Export Page CSV
           </button>
         )}
       </header>
@@ -257,7 +262,6 @@ export default function Home() {
 
       {/* Cards Grid / Skeletons */}
       {isFetching ? (
-        /* Loading Skeleton Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map((n) => (
             <div key={n} className="bg-white border rounded-xl p-4 shadow-sm animate-pulse flex flex-col justify-between">
@@ -276,88 +280,110 @@ export default function Home() {
           ))}
         </div>
       ) : assets.length > 0 ? (
-        /* Actual Data Cards Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {assets.map((asset) => (
-            <div key={asset._id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
-              <div>
-                {/* Image Preview */}
-                {asset.jpegData ? (
-                  <div className="h-44 w-full bg-slate-100 rounded-lg overflow-hidden mb-4 border">
-                    <img src={asset.jpegData} alt={asset.title} className="w-full h-full object-contain" />
-                  </div>
-                ) : (
-                  <div className="h-44 w-full bg-slate-100 rounded-lg mb-4 border flex items-center justify-center text-slate-400 text-xs">
-                    No Preview
-                  </div>
-                )}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {assets.map((asset) => (
+              <div key={asset._id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                <div>
+                  {asset.jpegData ? (
+                    <div className="h-44 w-full bg-slate-100 rounded-lg overflow-hidden mb-4 border">
+                      <img src={asset.jpegData} alt={asset.title} className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="h-44 w-full bg-slate-100 rounded-lg mb-4 border flex items-center justify-center text-slate-400 text-xs">
+                      No Preview
+                    </div>
+                  )}
 
-                {/* Title Copy */}
-                <div className="mb-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Title</span>
-                    <button
-                      onClick={() => copyToClipboard(asset.title, asset._id, 'title')}
-                      className="text-xs text-indigo-600 font-medium hover:underline"
-                    >
-                      {copiedId === `${asset._id}-title` ? '✓ Copied!' : 'Copy'}
-                    </button>
+                  <div className="mb-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Title</span>
+                      <button
+                        onClick={() => copyToClipboard(asset.title, asset._id, 'title')}
+                        className="text-xs text-indigo-600 font-medium hover:underline"
+                      >
+                        {copiedId === `${asset._id}-title` ? '✓ Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="text-sm font-medium text-slate-700 bg-slate-50 p-2 rounded border">{asset.title}</p>
                   </div>
-                  <p className="text-sm font-medium text-slate-700 bg-slate-50 p-2 rounded border">{asset.title}</p>
+
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Keywords</span>
+                      <button
+                        onClick={() => copyToClipboard(asset.keywords, asset._id, 'keywords')}
+                        className="text-xs text-indigo-600 font-medium hover:underline"
+                      >
+                        {copiedId === `${asset._id}-keywords` ? '✓ Copied!' : 'Copy All'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded border h-20 overflow-y-auto leading-relaxed">
+                      {asset.keywords}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Keywords Copy */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-semibold text-slate-400 uppercase">Keywords</span>
-                    <button
-                      onClick={() => copyToClipboard(asset.keywords, asset._id, 'keywords')}
-                      className="text-xs text-indigo-600 font-medium hover:underline"
-                    >
-                      {copiedId === `${asset._id}-keywords` ? '✓ Copied!' : 'Copy All'}
-                    </button>
+                <div className="pt-3 border-t flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    {asset.svgData && (
+                      <a
+                        href={asset.svgData}
+                        download={asset.svgFilename || 'vector.svg'}
+                        className="flex-1 text-center bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-medium text-xs py-2 rounded-md transition"
+                      >
+                        ⬇️ SVG File
+                      </a>
+                    )}
+                    {asset.jpegData && (
+                      <a
+                        href={asset.jpegData}
+                        download={asset.jpegFilename || 'preview.jpg'}
+                        className="flex-1 text-center bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium text-xs py-2 rounded-md transition"
+                      >
+                        ⬇️ JPEG Image
+                      </a>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded border h-20 overflow-y-auto leading-relaxed">
-                    {asset.keywords}
-                  </p>
+
+                  <button
+                    onClick={() => handleDelete(asset._id)}
+                    className="w-full bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-xs font-medium py-2 rounded-md transition border"
+                  >
+                    ✓ Done (Delete)
+                  </button>
                 </div>
               </div>
+            ))}
+          </div>
 
-              {/* Downloads & Actions */}
-              <div className="pt-3 border-t flex flex-col gap-2">
-                <div className="flex gap-2">
-                  {asset.svgData && (
-                    <a
-                      href={asset.svgData}
-                      download={asset.svgFilename || 'vector.svg'}
-                      className="flex-1 text-center bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-medium text-xs py-2 rounded-md transition"
-                    >
-                      ⬇️ SVG File
-                    </a>
-                  )}
-                  {asset.jpegData && (
-                    <a
-                      href={asset.jpegData}
-                      download={asset.jpegFilename || 'preview.jpg'}
-                      className="flex-1 text-center bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium text-xs py-2 rounded-md transition"
-                    >
-                      ⬇️ JPEG Image
-                    </a>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => handleDelete(asset._id)}
-                  className="w-full bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-xs font-medium py-2 rounded-md transition border"
-                >
-                  ✓ Done (Delete)
-                </button>
-              </div>
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 mt-8 rounded-xl border shadow-sm">
+            <div>
+              <p className="text-sm text-slate-700">
+                Page <span className="font-semibold">{page}</span> of{' '}
+                <span className="font-semibold">{totalPages}</span>
+              </p>
             </div>
-          ))}
-        </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 border rounded-lg text-sm font-medium bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="px-4 py-2 border rounded-lg text-sm font-medium bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
       ) : (
-        /* Empty State */
         <div className="text-center py-16 text-slate-400">
           <p>No assets pending. Upload one above!</p>
         </div>

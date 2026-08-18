@@ -4,19 +4,41 @@ import clientPromise from '../../../lib/mongodb';
 // Allows route execution up to 60 seconds for larger payloads
 export const maxDuration = 60; 
 
-// GET: Fetch all assets
-export async function GET() {
+// GET: Fetch assets with pagination
+export async function GET(req) {
   try {
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = 20;
+    const skip = (page - 1) * limit;
+
     const client = await clientPromise;
     const db = client.db('stock_hub');
+    const collection = db.collection('assets');
 
-    const assets = await db
-      .collection('assets')
-      .find({})
-      .sort({ createdAt: -1 })
-      .toArray();
+    const [assets, totalAssets] = await Promise.all([
+      collection
+        .find({})
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .allowDiskUse()
+        .toArray(),
+      collection.countDocuments({}),
+    ]);
 
-    return NextResponse.json({ success: true, data: assets });
+    const totalPages = Math.ceil(totalAssets / limit);
+
+    return NextResponse.json({
+      success: true,
+      data: assets,
+      pagination: {
+        page,
+        limit,
+        totalAssets,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error('GET /api/assets error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -50,7 +72,6 @@ export async function POST(req) {
 
     return NextResponse.json({ success: true, data: { ...newAsset, _id: result.insertedId } });
   } catch (error) {
-    // Print full error log in your terminal for easy debugging
     console.error('POST /api/assets error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
