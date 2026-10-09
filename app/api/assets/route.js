@@ -61,12 +61,11 @@ export async function GET(req) {
 
     const [assets, totalAssets] = await Promise.all([
       collection
-        .find({})
-        .project({ svgData: 0, jpegData: 0 }) // 🚀 FIX: Strip BOTH massive files from the payload!
-        .sort({ createdAt: -1, _id: -1 })
+        .find({}, { allowDiskUse: true }) // 1. FIXES MEMORY CRASH
+        .project({ svgData: 0 })          // 2. FIXES SLOW LOADING & PAYLOAD LIMITS
+        .sort({ createdAt: -1, _id: -1 }) // 3. FIXES PAGINATION BUGS
         .skip(skip)
         .limit(limit)
-        .allowDiskUse() // Allow disk sorting to prevent crashes
         .toArray(),
       collection.countDocuments({}),
     ]);

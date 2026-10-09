@@ -285,20 +285,15 @@ export default function Home() {
             {assets.map((asset) => (
               <div key={asset._id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
                 <div>
-                  {asset.jpegFilename ? (
-  <div className="h-44 w-full bg-slate-100 rounded-lg overflow-hidden mb-4 border">
-    {/* 🚀 FIX: Load the image through the API route natively instead of Base64 */}
-    <img 
-      src={`/api/assets/${asset._id}/download?type=jpeg`} 
-      alt={asset.title} 
-      className="w-full h-full object-contain" 
-    />
-  </div>
-) : (
-  <div className="h-44 w-full bg-slate-100 rounded-lg mb-4 border flex items-center justify-center text-slate-400 text-xs">
-    No Preview
-  </div>
-)}
+                  {asset.jpegData ? (
+                    <div className="h-44 w-full bg-slate-100 rounded-lg overflow-hidden mb-4 border">
+                      <img src={asset.jpegData} alt={asset.title} className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="h-44 w-full bg-slate-100 rounded-lg mb-4 border flex items-center justify-center text-slate-400 text-xs">
+                      No Preview
+                    </div>
+                  )}
 
                   <div className="mb-3">
                     <div className="flex justify-between items-center mb-1">
@@ -352,23 +347,23 @@ export default function Home() {
                   </div> */}
 
                   <div className="flex gap-2">
-                    {/* Notice we removed the check for asset.svgData because we aren't fetching it anymore */}
-                    <a
-                      href={`/api/assets/${asset._id}/download?type=svg`}
-                      className="flex-1 text-center bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-medium text-xs py-2 rounded-md transition"
-                    >
-                      ⬇️ SVG File
-                    </a>
-                                    
-                    {asset.jpegFilename && (
-  <a
-    href={`/api/assets/${asset._id}/download?type=jpeg`}
-    className="flex-1 text-center bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium text-xs py-2 rounded-md transition"
-  >
-    ⬇️ JPEG Image
-  </a>
-)}
-                  </div>
+                      {/* Notice we removed the check for asset.svgData because we aren't fetching it anymore */}
+                      <a
+                        href={`/api/assets/${asset._id}/download?type=svg`}
+                        className="flex-1 text-center bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-medium text-xs py-2 rounded-md transition"
+                      >
+                        ⬇️ SVG File
+                      </a>
+                                      
+                      {asset.jpegData && (
+                        <a
+                          href={`/api/assets/${asset._id}/download?type=jpeg`}
+                          className="flex-1 text-center bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium text-xs py-2 rounded-md transition"
+                        >
+                          ⬇️ JPEG Image
+                        </a>
+                      )}
+                    </div>
 
                   <button
                     onClick={() => handleDelete(asset._id)}
