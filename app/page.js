@@ -285,15 +285,20 @@ export default function Home() {
             {assets.map((asset) => (
               <div key={asset._id} className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
                 <div>
-                  {asset.jpegData ? (
-                    <div className="h-44 w-full bg-slate-100 rounded-lg overflow-hidden mb-4 border">
-                      <img src={asset.jpegData} alt={asset.title} className="w-full h-full object-contain" />
-                    </div>
-                  ) : (
-                    <div className="h-44 w-full bg-slate-100 rounded-lg mb-4 border flex items-center justify-center text-slate-400 text-xs">
-                      No Preview
-                    </div>
-                  )}
+                  {asset.jpegFilename ? (
+  <div className="h-44 w-full bg-slate-100 rounded-lg overflow-hidden mb-4 border">
+    {/* 🚀 FIX: Load the image through the API route natively instead of Base64 */}
+    <img 
+      src={`/api/assets/${asset._id}/download?type=jpeg`} 
+      alt={asset.title} 
+      className="w-full h-full object-contain" 
+    />
+  </div>
+) : (
+  <div className="h-44 w-full bg-slate-100 rounded-lg mb-4 border flex items-center justify-center text-slate-400 text-xs">
+    No Preview
+  </div>
+)}
 
                   <div className="mb-3">
                     <div className="flex justify-between items-center mb-1">
@@ -355,14 +360,14 @@ export default function Home() {
                       ⬇️ SVG File
                     </a>
                                     
-                    {asset.jpegData && (
-                      <a
-                        href={`/api/assets/${asset._id}/download?type=jpeg`}
-                        className="flex-1 text-center bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium text-xs py-2 rounded-md transition"
-                      >
-                        ⬇️ JPEG Image
-                      </a>
-                    )}
+                    {asset.jpegFilename && (
+  <a
+    href={`/api/assets/${asset._id}/download?type=jpeg`}
+    className="flex-1 text-center bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium text-xs py-2 rounded-md transition"
+  >
+    ⬇️ JPEG Image
+  </a>
+)}
                   </div>
 
                   <button
