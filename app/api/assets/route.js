@@ -47,6 +47,7 @@ export const maxDuration = 60;
 
 
 // GET: Fetch assets with pagination
+// GET: Fetch assets with pagination
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -60,9 +61,9 @@ export async function GET(req) {
 
     const [assets, totalAssets] = await Promise.all([
       collection
-        .find({})
-        .project({ svgData: 0 }) // 🚀 HUGE SPEED BOOST: Excludes massive SVG Base64 from the list
-        .sort({ createdAt: -1, _id: -1 }) // 🚀 FIXES PAGINATION: Guarantees exact order
+        .find({}, { allowDiskUse: true }) // 1. FIXES MEMORY CRASH
+        .project({ svgData: 0 })          // 2. FIXES SLOW LOADING & PAYLOAD LIMITS
+        .sort({ createdAt: -1, _id: -1 }) // 3. FIXES PAGINATION BUGS
         .skip(skip)
         .limit(limit)
         .toArray(),
