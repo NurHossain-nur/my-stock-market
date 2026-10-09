@@ -325,7 +325,7 @@ export default function Home() {
                 </div>
 
                 <div className="pt-3 border-t flex flex-col gap-2">
-                  {/* <div className="flex gap-2">
+                  <div className="flex gap-2">
                     {asset.svgData && (
                       <a
                         href={asset.svgData}
@@ -344,26 +344,7 @@ export default function Home() {
                         ⬇️ JPEG Image
                       </a>
                     )}
-                  </div> */}
-
-                  <div className="flex gap-2">
-                      {/* Notice we removed the check for asset.svgData because we aren't fetching it anymore */}
-                      <a
-                        href={`/api/assets/${asset._id}/download?type=svg`}
-                        className="flex-1 text-center bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-medium text-xs py-2 rounded-md transition"
-                      >
-                        ⬇️ SVG File
-                      </a>
-                                      
-                      {asset.jpegData && (
-                        <a
-                          href={`/api/assets/${asset._id}/download?type=jpeg`}
-                          className="flex-1 text-center bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-medium text-xs py-2 rounded-md transition"
-                        >
-                          ⬇️ JPEG Image
-                        </a>
-                      )}
-                    </div>
+                  </div>
 
                   <button
                     onClick={() => handleDelete(asset._id)}
